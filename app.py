@@ -28,12 +28,14 @@ def create_pdf(text):
 # ---------------- EMOTION DETECTION ----------------
 def detect_emotion(user_text):
     emotion_prompt = f"""
-    Analyze the user's message and detect the MAIN emotion.
-    Possible emotions:
-    Anxiety, Confusion, Motivation, Confidence, Fear, Sadness, Excitement
-    Return ONLY the emotion name.
-    Message: {user_text}
-    """
+Detect the MAIN emotion from the message.
+Return ONLY one word.
+
+Options:
+Anxiety, Confusion, Motivation, Confidence, Fear, Sadness, Excitement
+
+Message: {user_text}
+"""
 
     emotion_chat = client.chat.completions.create(
         model="llama-3.1-8b-instant",
@@ -41,40 +43,64 @@ def detect_emotion(user_text):
         max_tokens=10,
         messages=[{"role":"user","content":emotion_prompt}]
     )
+
     return emotion_chat.choices[0].message.content.strip()
 
-# ---------------- CAREER ROADMAP ----------------
+# ---------------- LONG ROADMAP GENERATOR (FIXED 🔥) ----------------
 def generate_roadmap(user_text):
+
     roadmap_prompt = f"""
-    Create a clear step-by-step career roadmap.
-    Include:
-    - Skills to learn
-    - Timeline (months)
-    - Projects to build
-    - Job preparation tips
-    User request: {user_text}
-    """
+Create a VERY DETAILED step-by-step career roadmap.
+
+IMPORTANT RULES:
+- Minimum length: 1200 words
+- MUST finish the roadmap completely
+- Do NOT stop mid sentence
+- End with a motivational closing paragraph
+
+Structure EXACTLY like this:
+
+PHASE 1 — Foundation (0-3 months)
+PHASE 2 — Core Skills (4-6 months)
+PHASE 3 — Advanced Skills (7-9 months)
+PHASE 4 — Job Preparation (10-12 months)
+
+Each phase MUST include:
+• Skills to learn
+• Tools
+• Projects
+• Practice plan
+• Interview prep tips
+
+User request:
+{user_text}
+"""
 
     roadmap_chat = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        temperature=0.6,
-        max_tokens=500,
+        temperature=0.7,
+        max_tokens=1800,   # 🔥 BIG FIX (was 500)
         messages=[{"role":"user","content":roadmap_prompt}]
     )
+
     return roadmap_chat.choices[0].message.content
+
 
 # ---------------- SYSTEM PROMPT ----------------
 system_prompt = """
 You are InnerVoice AI — an emotionally intelligent life coach.
-You will be given:
-1) User message
-2) Detected emotion
 
-Respond like therapist + career mentor.
+Tone rules:
+Anxiety/Fear → calming
+Sadness → supportive
+Confusion → step-by-step
+Motivation/Confidence → energetic
+
+Always give emotional support + practical steps.
 """
 
 # ==================================================
-# 🎨 HERO HEADER (NEW)
+# 🎨 HERO HEADER
 # ==================================================
 st.markdown("""
 <h1 style='text-align:center;'>🧠 InnerVoice AI</h1>
@@ -84,7 +110,7 @@ Your AI Life Coach • Career Therapist • Confidence Builder
 """, unsafe_allow_html=True)
 
 # ==================================================
-# ⭐ FEATURE CARDS (NEW)
+# ⭐ FEATURE CARDS
 # ==================================================
 st.markdown("### What I can help you with")
 
@@ -113,26 +139,30 @@ if user_input:
         "how to start","guide me","learning path"
     ]
 
-    if any(word in user_input.lower() for word in roadmap_keywords):
-        roadmap = generate_roadmap(user_input)
-        st.session_state.messages.append({"role":"assistant","content":roadmap})
+    # 🔥 SHOW LOADER (UX BOOST)
+    with st.spinner("Thinking deeply about your situation..."):
 
-    else:
-        emotion = detect_emotion(user_input)
-        st.info(f"Detected Emotion: {emotion}")
+        # ---------------- ROADMAP MODE ----------------
+        if any(word in user_input.lower() for word in roadmap_keywords):
+            roadmap = generate_roadmap(user_input)
+            st.session_state.messages.append({"role":"assistant","content":roadmap})
 
-        chat = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            temperature=0.7,
-            max_tokens=500,
-            messages=[
-                {"role":"system","content":system_prompt},
-                {"role":"user","content":f"Emotion: {emotion}\nMessage: {user_input}"}
-            ]
-        )
+        # ---------------- EMOTIONAL CHAT MODE ----------------
+        else:
+            emotion = detect_emotion(user_input)
 
-        reply = chat.choices[0].message.content
-        st.session_state.messages.append({"role":"assistant","content":reply})
+            chat = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                temperature=0.8,
+                max_tokens=900,   # 🔥 increased
+                messages=[
+                    {"role":"system","content":system_prompt},
+                    {"role":"user","content":f"Emotion: {emotion}\nMessage: {user_input}"}
+                ]
+            )
+
+            reply = chat.choices[0].message.content
+            st.session_state.messages.append({"role":"assistant","content":reply})
 
 # ---------------- DISPLAY CHAT ----------------
 for msg in st.session_state.messages:
